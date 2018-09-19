@@ -7,6 +7,8 @@ import dateutil.parser
 from bson import json_util
 import codecs
 import ast
+import logging
+
 app = Flask(__name__)
 
 app.config['MONGO_DBNAME'] = 'LabelingStudy'
@@ -47,17 +49,9 @@ def find_latest_and_insert():
         
         json_request = request.get_json(force=True, silent=True)
         if action == 'insert' and collection == 'trip':
-            # handle the log file: read as string  and store as list to append new data
-            #json_request = request.get_json(force=True, silent=True)
-            #request_indent = json.dumps(json_request, indent=4, sort_keys=True)
-            #content_data.append(request_indent)
-            # file = open('insertOrUpdate.txt', 'a')
-            # file.write(str(json_request)+'\n')
-            # with codecs.open('insertOrUpdate.txt', 'w', 'utf8') as outfile:
-            #     for string in content_data:
-            #         outfile.write(str(string) + '\n')
-            #     outfile.close()
-            # handle database
+            print (json_request)
+            logging.info(json_request)
+
             missing_key = False
             try:
                 if '_id' in json_request and 'createdTime' in json_request:
@@ -66,19 +60,16 @@ def find_latest_and_insert():
                         if key in json_request and key != '_id':
                             data[key] = json_request[key]
                         elif key not in json_request:
-                            print(key, " is missing")
+                            logginf.warning(key, " is missing")
                             missing_key = True
                     if missing_key:
                         file = open('MissingKeyData.txt', 'a')
                         file.write(str(json_request)+'\n')
 
                     user.update({'_id': json_request['_id']}, {'$set': data}, upsert=True, multi=True)
-            except KeyError:
-                print ('Key error')
             except Exception as e:
                 print (e)
             else:  # if try successfully, then execute else
-                print (json_request['createdTime'])
                 return json.dumps({'createdTime': json_request['createdTime']})
         elif action=='insert' and collection=='dump':
             try:
@@ -87,7 +78,6 @@ def find_latest_and_insert():
             except Exception as e:
                 print (e)
         else:
-            #json_request = request.get_json(force=True, silent=True)
             user.insert(json_request)
             return 'insert OK!'
 
@@ -114,10 +104,6 @@ def time_interval():
     for doc in in_time_range:
         json_docs.append(doc)
     print (json_docs)
-    # search_indent = json.dumps(json_docs, indent=4, sort_keys=True)
-    # with codecs.open('search.txt', 'w', 'utf8') as outfile:
-    #     outfile.write(search_indent)
-    #     outfile.close()
     return json.dumps({'device_id': d_id, "number": number})
 
 if __name__ == '__main__':
