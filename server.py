@@ -18,6 +18,7 @@ mongo = PyMongo(app)
 
 TripDataKey = ["_id", "device_id", "condition", "createdTime", "startTime", "endTime", "startTimeString", "endTimeString", "sessionid", "annotations"]
 
+
 @app.route('/')
 def test():
     return 'OK'
@@ -28,6 +29,7 @@ def find_latest_and_insert():
     if request.method == 'POST':
         collection = str(request.args['collection'])
         action = str(request.args['action'])
+        user_id = request.args['id']
 
         if collection == 'dump':
             user = mongo.db.dump
@@ -36,21 +38,18 @@ def find_latest_and_insert():
         elif collection == 'isAlive':
             user = mongo.db.isAlive
         if action == 'search':
-            user_id = request.args['id']
             data = user.find({'device_id': user_id})
             res = data.sort('startTime', -1).limit(1)
 
-            docs = []
+            returnStartTime = 0
             for item in res:
-                time = item['startTime']
-                docs.append({'startTime': item['startTime']})
-            message = json.dumps(docs)
+                returnStartTime = item['startTime']
+            message = json.dumps({'startTime':returnStartTime})
             return message
         
         json_request = request.get_json(force=True, silent=True)
         if action == 'insert' and collection == 'trip':
             print (json_request)
-            logging.info(json_request)
 
             missing_key = False
             try:
@@ -60,7 +59,6 @@ def find_latest_and_insert():
                         if key in json_request and key != '_id':
                             data[key] = json_request[key]
                         elif key not in json_request:
-                            logginf.warning(key, " is missing")
                             missing_key = True
                     if missing_key:
                         file = open('MissingKeyData.txt', 'a')
@@ -70,11 +68,23 @@ def find_latest_and_insert():
             except Exception as e:
                 print (e)
             else:  # if try successfully, then execute else
-                return json.dumps({'createdTime': json_request['createdTime']})
+                # unique data
+                user_data = user.find({'_id': json_request['_id']})
+                returnCreatedTime = 0
+                for item in user_data:
+                    returnCreatedTime = item['createdTime']
+                message = json.dumps({'createdTime': returnCreatedTime})
+                return message
         elif action=='insert' and collection=='dump':
             try:
                 user.insert(json_request)
-                return json.dumps({'endTime':json_request['endTime']})
+                user_data = user.find({'device_id': user_id})
+                res = user_data.sort('endTime', -1).limit(1)
+                returnEndTime = 0
+                for item in res:
+                    returnEndTime = item['endTime']
+                message = json.dumps({'endTime': returnEndTime})
+                return message
             except Exception as e:
                 print (e)
         else:
@@ -107,4 +117,4 @@ def time_interval():
     return json.dumps({'device_id': d_id, "number": number})
 
 if __name__ == '__main__':
-    app.run(host="172.31.3.66")
+    app.run(host="172.31.3.66", threaded=True)
